@@ -2,7 +2,11 @@ from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
-from .serializers import UserSerializer, RegisterSerializer, UserLikeSerializer, UserBucketSerializer
+from datetime import datetime, timedelta
+from .models import UserVerification
+from django.utils import timezone
+from .serializers import UserSerializer, RegisterSerializer, UserLikeSerializer, UserBucketSerializer, \
+    UserVerificationSerializer
 from drf_spectacular.utils import extend_schema
 from django.db import IntegrityError
 from rest_framework.exceptions import ValidationError, ErrorDetail
@@ -14,17 +18,37 @@ error = "Xatolik yuz berdi"
 none = "Kiritilganlar bo'yicha malumot topilmadi"
 value_e = "Malumotlarni to'g'ri shakilda jo'nating"
 
+
 # @extend_schema(responses=RegisterSerializer)
 class RegisterApi(APIView):
     serializer_class = RegisterSerializer
 
     def post(self, request):
-
-        serializer = RegisterSerializer(data=request.data)
+        request.data['smsCode'] = 1111
+        serializer = UserVerificationSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response("User created successfully", status=201)
-        return Response(data="Malumotlar to'liq emas", status=400)
+            return Response(data={"Tasdiqlash code jonatildi"}, status=200)
+        return Response(data=serializer.errors, status=400)
+
+        # serializer = RegisterSerializer(data=request.data)
+        # if serializer.is_valid():
+        #     serializer.save()
+        #     return Response("User created successfully", status=201)
+        # return Response(data="Malumotlar to'liq emas", status=400)
+
+
+class UserVerificationApi(APIView):
+    serializer_class = UserVerificationSerializer
+
+    def post(self, request):
+        user = UserVerification.objects.filter(**request.data).last()
+        if user:
+            if timezone.now() - user.datetime > timedelta(minutes=5):
+                return Response(data="Sms code amal qilish muddati tugadi", status=400)
+            User.objects.create_user(username=user.username, password=request.data['password'])
+            return Response(data="Foydalanuvchi muvaffaqiyatli yaratild", status=200)
+        return Response(data="Bunday foydalanuvchi topilmadi", status=400)
 
 
 class UserApi(APIView):

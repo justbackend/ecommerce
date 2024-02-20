@@ -10,3 +10,8 @@ class CustomUser(AbstractUser):
     bucket = models.ManyToManyField('ProductsApp.Product', related_name="storedBy")
 
 
+class UserVerification(models.Model):
+    username = models.CharField(max_length=32)
+    password = models.CharField(max_length=32)
+    smsCode = models.IntegerField()
+    datetime = models.DateTimeField(auto_now_add=True)

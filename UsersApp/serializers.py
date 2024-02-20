@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework import viewsets
 
 from ProductsApp.models import Product
+from UsersApp.models import UserVerification
 
 User = get_user_model()
 
@@ -76,3 +77,7 @@ class UserBucketSerializer(serializers.Serializer):
         return product
 
 
+class UserVerificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserVerification
+        fields = ['username', 'password', 'smsCode']
