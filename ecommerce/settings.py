@@ -37,8 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'drf_spectacular',
-    'products',
-    'users',
+    'ProductsApp',
+    'UsersApp',
 ]
 
 MIDDLEWARE = [
@@ -130,7 +130,7 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=180),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
-AUTH_USER_MODEL = 'users.CustomUser'
+AUTH_USER_MODEL = 'UsersApp.CustomUser'
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Ecommerce',
