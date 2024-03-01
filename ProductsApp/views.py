@@ -23,6 +23,11 @@ class CreateProductApi(APIView):
         return Response(data=serializer.errors, status=400)
 
     def get(self, request):
+        product_id = request.query_params.get("id", None)
+        if product_id:
+            product = Product.objects.filter(id=product_id).first()
+            serializer = ProductGetSerializer(product)
+            return Response(data=serializer.data, status=200)
         products = request.user.product.all()
         serializer = ProductGetSerializer(products, many=True)
         return Response(data=serializer.data, status=200)

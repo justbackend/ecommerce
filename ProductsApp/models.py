@@ -11,7 +11,7 @@ class Product(models.Model):
     phoneMarka = models.CharField(max_length=50)
     cost = models.FloatField()
     costType = models.CharField(max_length=10)
-    phoneMemory = models.PositiveSmallIntegerField()
+    phoneMemory = models.CharField(max_length=30)
     phoneColor = models.CharField(max_length=20)
     document = models.BooleanField(default=False)
     isNew = models.BooleanField(default=False)
