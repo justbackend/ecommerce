@@ -19,6 +19,14 @@ class Product(models.Model):
     adress = models.TextField()
     phoneNumber = models.CharField(max_length=15)
     time = models.DateTimeField(auto_now_add=True)
+    likes = models.PositiveBigIntegerField(default=0)
+
+
+class Views(models.Model):
+    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='views')
+
+
 
 
 class ProductImage(models.Model):

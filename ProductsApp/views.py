@@ -1,14 +1,25 @@
-from rest_framework.parsers import MultiPartParser, FormParser
+from utils.imports import *
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
-
-from .models import Product
-from .serializers import ProductSerializer, ImageSerializer, ProductGetSerializer
+from .models import Product, Views
+from .serializers import ProductSerializer, ImageSerializer, ProductGetSerializer, ProductIdSerializer
+from django.db.models import Count
+from django.core.exceptions import ValidationError
+from django.http import HttpResponseBadRequest, Http404, HttpResponseServerError
 success = "Amaliyot muvaffaqiyatli bajarildi"
 error = "Xatolik yuz berdi"
 none = "Kiritilganlar bo'yicha malumot topilmadi"
 value_e = "Malumotlarni to'g'ri shakilda jo'nating"
+
+def get_product(product_id):
+    try:
+        product = Product.objects.get(id=product_id)
+    except Product.DoesNotExist:
+        raise CustomException(detail=none)
+
+    return product
+
 
 class CreateProductApi(APIView):
     serializer_class = ProductSerializer
@@ -26,8 +37,14 @@ class CreateProductApi(APIView):
         product_id = request.query_params.get("id", None)
         if product_id:
             product = Product.objects.filter(id=product_id).first()
+            view = Views.objects.filter(user=request.user).first()
+            if not view:
+                Views.objects.create(user=request.user, product=product)
             serializer = ProductGetSerializer(product)
-            return Response(data=serializer.data, status=200)
+            views_count = Views.objects.filter(product=product).count()
+            data = serializer.data
+            data['views'] = views_count
+            return Response(data=data, status=200)
         products = request.user.product.all()
         serializer = ProductGetSerializer(products, many=True)
         return Response(data=serializer.data, status=200)
@@ -50,5 +67,26 @@ class ProductAllApi(APIView):
         serializer = ProductGetSerializer(products, many=True)
         return Response(serializer.data, status=200)
 
+
+class AddLike(APIView):
+    serializer_class = ProductIdSerializer
+
+    def post(self, request):
+        serializer = ProductIdSerializer(data=request.data)
+        if serializer.is_valid():
+            product = get_product(serializer.validated_data['id'])
+            product.likes = product.likes + 1
+            product.save()
+            return Response(success, 200)
+        return Response(serializer.errors)
+
+    def put(self, request):
+        serializer = ProductIdSerializer(data=request.data)
+        if serializer.is_valid():
+            product = get_product(serializer.validated_data['id'])
+            product.likes = product.likes - 1
+            product.save()
+            return Response(success, 200)
+        return Response(serializer.errors)
 
 

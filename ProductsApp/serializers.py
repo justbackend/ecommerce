@@ -40,3 +40,7 @@ class ProductGetSerializer(serializers.ModelSerializer):
             'id', 'user', 'phoneName', 'phoneMarka', 'cost', 'costType', 'phoneMemory', 'phoneColor', 'document',
             'isNew',
             'comment', 'adress', 'phoneNumber', 'time', 'images')
+
+
+class ProductIdSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
