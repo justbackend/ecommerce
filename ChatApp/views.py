@@ -15,7 +15,7 @@ class SendMessageApi(APIView):
         #     reciver_id = serializer.validated_data.get('user_id', None)
         #     message = serializer.validated_data['message']
         #     websocket = user_websocket.get(reciver_id, None)
-        #     if websocket is None:
+        #     # if websocket is None:
         #
         #
         #     async_to_sync(channel_layer.send)(, {'type': 'private_chat','message': message})

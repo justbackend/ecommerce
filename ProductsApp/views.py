@@ -2,7 +2,7 @@ from utils.imports import *
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Product, Views
+from .models import Product, Views, Likes
 from .serializers import ProductSerializer, ImageSerializer, ProductGetSerializer, ProductIdSerializer
 from django.db.models import Count
 from django.core.exceptions import ValidationError
@@ -34,17 +34,6 @@ class CreateProductApi(APIView):
         return Response(data=serializer.errors, status=400)
 
     def get(self, request):
-        product_id = request.query_params.get("id", None)
-        if product_id:
-            product = Product.objects.filter(id=product_id).first()
-            view = Views.objects.filter(user=request.user).first()
-            if not view:
-                Views.objects.create(user=request.user, product=product)
-            serializer = ProductGetSerializer(product)
-            views_count = Views.objects.filter(product=product).count()
-            data = serializer.data
-            data['views'] = views_count
-            return Response(data=data, status=200)
         products = request.user.product.all()
         serializer = ProductGetSerializer(products, many=True)
         return Response(data=serializer.data, status=200)
@@ -60,6 +49,35 @@ class CreateProductApi(APIView):
         return Response(data=value_e, status=400)
 
 
+class OneProductApi(APIView):
+
+    def get(self, request):
+        product_id = request.query_params.get("id", None)
+        try:
+            product = Product.objects.filter(id=product_id).first()
+            serializer = ProductGetSerializer(product)
+            if request.user.isAuthenticated:
+                view = Views.objects.filter(user=request.user, product=product).first()
+                like = Likes.objects.filter(user=request.user, product=product).first()
+                if not view:
+                    Views.objects.create(user=request.user, product=product)
+                views_count = product.views.count()
+                likes_count = product.likes.count()
+                data = serializer.data
+
+                if like:
+                    data['liked_status'] = True
+                    print('i worked')
+                else:
+                    data['liked_status'] = False
+                data['views'] = views_count
+                data['likes'] = likes_count
+                return Response(data=data, status=200)
+            return Response(serializer.data, status=200)
+        except:
+            return Response(none, status=400)
+
+
 class ProductAllApi(APIView):
     serializer_class = ProductGetSerializer
     def get(self, request):
@@ -69,14 +87,14 @@ class ProductAllApi(APIView):
 
 
 class AddLike(APIView):
+    permission_classes = [IsAuthenticated]
     serializer_class = ProductIdSerializer
 
     def post(self, request):
         serializer = ProductIdSerializer(data=request.data)
         if serializer.is_valid():
             product = get_product(serializer.validated_data['id'])
-            product.likes = product.likes + 1
-            product.save()
+            Likes.objects.create(user=request.user, product=product)
             return Response(success, 200)
         return Response(serializer.errors)
 
@@ -84,8 +102,7 @@ class AddLike(APIView):
         serializer = ProductIdSerializer(data=request.data)
         if serializer.is_valid():
             product = get_product(serializer.validated_data['id'])
-            product.likes = product.likes - 1
-            product.save()
+            Likes.objects.filter(user=request.user, product=product).delete()
             return Response(success, 200)
         return Response(serializer.errors)
 
