@@ -23,7 +23,6 @@ def get_product(product_id):
 
 class CreateProductApi(APIView):
     serializer_class = ProductSerializer
-    # parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -35,11 +34,11 @@ class CreateProductApi(APIView):
 
     def get(self, request):
         products = request.user.product.all()
-        serializer = ProductGetSerializer(products, many=True)
+        serializer = ProductGetSerializer(products, many=True, context={"request": request})
         return Response(data=serializer.data, status=200)
 
     def delete(self, request):
-        product_id = request.data.get('id', None)
+        product_id = request.query_params.get('id', None)
         if product_id:
             product = Product.objects.filter(id=product_id).first()
             if product:
@@ -55,8 +54,8 @@ class OneProductApi(APIView):
         product_id = request.query_params.get("id", None)
         try:
             product = Product.objects.filter(id=product_id).first()
-            serializer = ProductGetSerializer(product)
-            if request.user.isAuthenticated:
+            serializer = ProductGetSerializer(product, context={"request": request})
+            if request.user.is_authenticated:
                 view = Views.objects.filter(user=request.user, product=product).first()
                 like = Likes.objects.filter(user=request.user, product=product).first()
                 if not view:
@@ -64,12 +63,6 @@ class OneProductApi(APIView):
                 views_count = product.views.count()
                 likes_count = product.likes.count()
                 data = serializer.data
-
-                if like:
-                    data['liked_status'] = True
-                    print('i worked')
-                else:
-                    data['liked_status'] = False
                 data['views'] = views_count
                 data['likes'] = likes_count
                 return Response(data=data, status=200)
@@ -82,7 +75,8 @@ class ProductAllApi(APIView):
     serializer_class = ProductGetSerializer
     def get(self, request):
         products = Product.objects.all()
-        serializer = ProductGetSerializer(products, many=True)
+        serializer = ProductGetSerializer(products, many=True, context={"request": request})
+
         return Response(serializer.data, status=200)
 
 
@@ -94,16 +88,14 @@ class AddLike(APIView):
         serializer = ProductIdSerializer(data=request.data)
         if serializer.is_valid():
             product = get_product(serializer.validated_data['id'])
+            like = Likes.objects.filter(user=request.user, product=product).first()
+            if like:
+                like.delete()
+                return Response(success, 200)
             Likes.objects.create(user=request.user, product=product)
             return Response(success, 200)
         return Response(serializer.errors)
 
-    def put(self, request):
-        serializer = ProductIdSerializer(data=request.data)
-        if serializer.is_valid():
-            product = get_product(serializer.validated_data['id'])
-            Likes.objects.filter(user=request.user, product=product).delete()
-            return Response(success, 200)
-        return Response(serializer.errors)
+
 
 
