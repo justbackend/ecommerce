@@ -114,7 +114,8 @@ class BucketAddApi(APIView):
 
     def get(self, request):
         data = request.user.bucket.all()
-        return Response(data, status=200)
+        serializer = ProductGetSerializer(data, many=True, context={'request': request})
+        return Response(serializer.data, status=200)
 
     def post(self, request):
         serializer = UserBucketSerializer(data=request.data, context={'request': request})

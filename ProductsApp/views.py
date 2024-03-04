@@ -2,8 +2,9 @@ from utils.imports import *
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Product, Views, Likes
-from .serializers import ProductSerializer, ImageSerializer, ProductGetSerializer, ProductIdSerializer
+from .models import Product, Views, Likes, ProductImage
+from .serializers import ProductSerializer, ImageSerializer, ProductGetSerializer, IdSerializer, ImageDeleteSerializer, \
+    LikedProductSerializer
 from django.db.models import Count
 from django.core.exceptions import ValidationError
 from django.http import HttpResponseBadRequest, Http404, HttpResponseServerError
@@ -11,7 +12,7 @@ success = "Amaliyot muvaffaqiyatli bajarildi"
 error = "Xatolik yuz berdi"
 none = "Kiritilganlar bo'yicha malumot topilmadi"
 value_e = "Malumotlarni to'g'ri shakilda jo'nating"
-
+restricted = "Bu amaliyot sizga ruhsat etilmagan"
 def get_product(product_id):
     try:
         product = Product.objects.get(id=product_id)
@@ -21,7 +22,7 @@ def get_product(product_id):
     return product
 
 
-class CreateProductApi(APIView):
+class ProductApi(APIView):
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
 
@@ -29,6 +30,7 @@ class CreateProductApi(APIView):
         serializer = ProductSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
+
             return Response(data=success, status=201)
         return Response(data=serializer.errors, status=400)
 
@@ -36,6 +38,15 @@ class CreateProductApi(APIView):
         products = request.user.product.all()
         serializer = ProductGetSerializer(products, many=True, context={"request": request})
         return Response(data=serializer.data, status=200)
+
+    def put(self, request):
+        serializer = ProductSerializer(data=request.data)
+        if serializer.is_valid():
+            if not request.user.product.filter(id=serializer.validated_data['id']).first():
+                raise CustomException(restricted)
+            Product.objects.update(**serializer.validated_data)
+            return Response(success, 200)
+        return Response(serializer.errors, 400)
 
     def delete(self, request):
         product_id = request.query_params.get('id', None)
@@ -48,13 +59,42 @@ class CreateProductApi(APIView):
         return Response(data=value_e, status=400)
 
 
+class ProductFilterApi(APIView):
+    def get(self, request):
+        products = Product.objects.all().order_by()
+        location = request.query_params.get('location', None)
+        condition = request.query_params.get('condition', None)
+        model = request.query_params.get('model', None)
+        currency = request.query_params.get('currency', None)
+        min_price = request.query_params.get('min_price', None)
+        max_price = request.query_params.get('max_price', None)
+        if location:
+            products = products.filter(adress__icontains=location).all()
+        if condition:
+            if condition == "NEW":
+                products = products.filter(isNew=True).all()
+            else:
+                products = products.filter(isNew=False).all()
+        if model:
+            products = products.filter(phoneMarka__icontains=model).all()
+        if currency:
+            products = products.filter(costType=currency).all()
+        if min_price:
+            products = products.filter(cost__gte=min_price).all()
+        if max_price:
+            products = products.filter(cost__lte=max_price).all()
+        products = products.order_by("?")
+        serializer = ProductGetSerializer(products, many=True, context={"request": request})
+        return Response(data=serializer.data, status=200)
+
+
 class OneProductApi(APIView):
 
     def get(self, request):
         product_id = request.query_params.get("id", None)
         try:
             product = Product.objects.filter(id=product_id).first()
-            serializer = ProductGetSerializer(product, context={"request": request})
+            serializer = ProductGetSerializer(product, context={"request": request, 'one': True})
             if request.user.is_authenticated:
                 view = Views.objects.filter(user=request.user, product=product).first()
                 like = Likes.objects.filter(user=request.user, product=product).first()
@@ -82,10 +122,13 @@ class ProductAllApi(APIView):
 
 class AddLike(APIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = ProductIdSerializer
-
+    serializer_class = IdSerializer
+    def get(self, request):
+        products = request.user.liked_products.all()
+        serializer = LikedProductSerializer(products, many=True, context={'request': request})
+        return Response(serializer.data, 200)
     def post(self, request):
-        serializer = ProductIdSerializer(data=request.data)
+        serializer = IdSerializer(data=request.data)
         if serializer.is_valid():
             product = get_product(serializer.validated_data['id'])
             like = Likes.objects.filter(user=request.user, product=product).first()
@@ -96,6 +139,33 @@ class AddLike(APIView):
             return Response(success, 200)
         return Response(serializer.errors)
 
+
+class ImageApi(APIView):
+    serializer_class = IdSerializer
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ImageSerializer(data=request.data)
+
+        if serializer.is_valid():
+            if serializer.validated_data['product'].user != request.user:
+                raise CustomException("Bu product sizga tegishli emas")
+            ProductImage.objects.create(**serializer.validated_data)
+            return Response(success, 200)
+        raise CustomException(serializer.errors)
+
+    def delete(self, request):
+        serializer = ImageDeleteSerializer(data=request.data)
+        if serializer.is_valid():
+            product = request.user.product.filter(id=serializer.validated_data['product_id']).first()
+            if not product:
+                raise CustomException("Bu product sizga tegishli emas")
+            product_image = ProductImage.objects.filter(id=serializer.validated_data['image_id']).first()
+            if product_image:
+                product_image.delete()
+                return Response(success, 200)
+            raise CustomException(none)
+        raise CustomException(str(serializer.errors))
 
 
 

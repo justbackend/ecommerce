@@ -27,7 +27,7 @@ class Views(models.Model):
 
 
 class Likes(models.Model):
-    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    user = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='liked_products')
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='likes', db_index=True)
 
 
