@@ -32,6 +32,7 @@ class UserSerializer(serializers.ModelSerializer):
 
         return instance
 
+
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -81,3 +82,14 @@ class UserVerificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserVerification
         fields = ['username', 'password', 'smsCode']
+
+
+class RecoverPasswordSerializer(serializers.Serializer):
+    phone_number = serializers.CharField()
+    code = serializers.IntegerField(required=False)
+
+
+class SetRecoveryPasswordSerializer(serializers.Serializer):
+    phone_number = serializers.CharField()
+    code = serializers.IntegerField()
+    password = serializers.CharField()

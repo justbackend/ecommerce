@@ -15,3 +15,8 @@ class UserVerification(models.Model):
     password = models.CharField(max_length=32)
     smsCode = models.IntegerField()
     datetime = models.DateTimeField(auto_now_add=True)
+
+
+class Recovery(models.Model):
+    phone_number = models.CharField(max_length=15)
+    code = models.IntegerField()
