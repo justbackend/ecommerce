@@ -8,6 +8,7 @@ success = "Amaliyot muvaffaqiyatli bajarildi"
 error = "Xatolik yuz berdi"
 none = "Kiritilganlar bo'yicha malumot topilmadi"
 value_e = "Malumotlarni to'g'ri shakilda jo'nating"
+restricted = "Bu amaliyot sizga ruhsat etilmagan"
 
 
 class CustomException(APIException):

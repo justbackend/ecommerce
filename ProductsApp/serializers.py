@@ -22,13 +22,14 @@ class ProductSerializer(serializers.ModelSerializer):
         images = self.validated_data.pop('images')
         product = Product.objects.create(user=self.context['request'].user, **self.validated_data)
         for image in images:
-            ProductImage.objects.create(product=product, image=image, user=self.context['request'].user)
+            ProductImage.objects.create(product=product, image=image)
         return product
     # def update(self, instance, validated_data):
 
 
 class ProductGetSerializer(serializers.ModelSerializer):
     images = serializers.SerializerMethodField()
+
     def get_images(self, obj):
         if self.context.get('one', None):
             image_query = obj.images.all()

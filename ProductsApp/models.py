@@ -17,7 +17,7 @@ class Product(models.Model):
     isNew = models.BooleanField(default=False)
     comment = models.TextField()
     adress = models.TextField()
-    phoneNumber = models.CharField(max_length=15)
+    phoneNumber = models.CharField(max_length=30)
     time = models.DateTimeField(auto_now_add=True)
 
 
@@ -28,7 +28,7 @@ class Views(models.Model):
 
 class Likes(models.Model):
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='liked_products')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='likes', db_index=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='liked', db_index=True)
 
 
 class ProductImage(models.Model):

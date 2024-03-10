@@ -3,7 +3,20 @@
 import os
 import sys
 
+from dotenv import load_dotenv
 
+load_dotenv()
+
+from instabot import Bot
+insta_username = os.getenv('insta_username')
+insta_password = os.getenv('insta_password')
+
+
+def upload_on_insta(image, caption):
+    bot = Bot()
+    bot.login(username=insta_username, password=insta_password)
+    bot.upload_photo(image, caption)
+    bot.logout()
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ecommerce.settings')

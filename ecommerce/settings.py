@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'ProductsApp',
     'UsersApp',
-    'channels',
+    # 'channels',
 ]
 
 MIDDLEWARE = [
@@ -73,7 +73,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'ecommerce.wsgi.application'
-ASGI_APPLICATION = "ecommerce.asgi.application"
+# ASGI_APPLICATION = "ecommerce.asgi.application"
 
 CHANNEL_LAYERS = {
     'default': {
@@ -136,7 +136,7 @@ REST_FRAMEWORK = {
     ),
 }
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=180),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
 AUTH_USER_MODEL = 'UsersApp.CustomUser'
