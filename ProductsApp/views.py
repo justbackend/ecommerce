@@ -192,7 +192,7 @@ class ImageApi(APIView):
 
 
 class MyCursorPagination(CursorPagination):
-    page_size = 5  # Number of items per page
+    page_size = 2  # Number of items per page
     ordering = '-time'  # Ordering by datetime, you can adjust this based on your model
     cursor_query_param = 'cursor'
 
