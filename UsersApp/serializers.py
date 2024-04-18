@@ -14,22 +14,17 @@ User = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['username', 'password', 'first_name', 'last_name', 'email', 'realUsername']
-
+        fields = ['username', 'password', 'first_name', 'last_name', 'email', 'phone_number', 'father_name']
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'username': {'write_only': True},
+        }
 
     def update(self, instance, validated_data):
         instance.set_password(validated_data.pop('password'))
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-        # instance.realUsername = validated_data['realUsername']
-        # instance.email = validated_data['email']
-        # instance.last_name = validated_data['last_name']
-        # instance.first_name = validated_data['first_name']
-        # instance.set_password(validated_data['password'])
-        # if instance.username != validated_data['username']:
-        #     instance.username = validated_data['username']
-
         return instance
 
 
@@ -43,10 +38,10 @@ class RegisterSerializer(serializers.ModelSerializer):
             phone_number1 = self.validated_data.get('username', None)
             password = self.validated_data['password']
 
-            if phone_number1 and User.objects.filter(username=phone_number1).exists():
+            if phone_number1 and User.objects.filter(phone_number=phone_number1).exists():
                 raise ValidationError(detail="Bu telefon raqam ro'yhatdan o'tgan")
 
-            User.objects.create_user(username=phone_number1, password=password)
+            User.objects.create_user(username=phone_number1, phone_number=phone_number1, password=password)
             return Response("User created successfully", status=201)
         except IntegrityError as e:
             return Response({"error": str(e)}, status=400)
@@ -93,3 +88,8 @@ class SetRecoveryPasswordSerializer(serializers.Serializer):
     phone_number = serializers.CharField()
     code = serializers.IntegerField()
     password = serializers.CharField()
+
+
+class GoogleTokenSerializer(serializers.Serializer):
+    token = serializers.CharField()
+

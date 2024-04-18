@@ -1,15 +1,22 @@
+import os
+from datetime import timedelta
+from random import randint
+
 import requests
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from datetime import datetime, timedelta
-from .models import UserVerification, Recovery
+from django.db import transaction
 from django.utils import timezone
-from .serializers import UserSerializer, RegisterSerializer, UserLikeSerializer, UserBucketSerializer, \
-    UserVerificationSerializer, RecoverPasswordSerializer, SetRecoveryPasswordSerializer
+from google.auth.transport import requests as r
+from google.oauth2 import id_token
 from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from ProductsApp.serializers import ProductGetSerializer
 from utils.imports import *
-from random import randint
+from .models import UserVerification, Recovery
+from .serializers import UserSerializer, RegisterSerializer, UserLikeSerializer, UserBucketSerializer, \
+    UserVerificationSerializer, RecoverPasswordSerializer, SetRecoveryPasswordSerializer, GoogleTokenSerializer
+
+CLIENT_ID = os.getenv('CLIENT_ID')
 sms_token = ""
 
 
@@ -24,14 +31,11 @@ def refresh_token():
         return sms_token
 
 
-
-
 class RegisterApi(APIView):
 
     serializer_class = RegisterSerializer
 
-
-
+    @transaction.atomic()
     def post(self, request):
         global sms_token
         code = randint(123467, 987654)
@@ -39,9 +43,15 @@ class RegisterApi(APIView):
         serializer = UserVerificationSerializer(data=request.data)
         if serializer.is_valid():
             phone_number = serializer.validated_data['username']
-            user = User.objects.filter(username=phone_number).first()
+            user = User.objects.filter(phone_number=phone_number).first()
+
             if user:
-                raise ValidationError("Bu username avval foydalanilgan")
+                raise CustomException("Bu telefon raqam foydalanilgan")
+
+            user_fake = UserVerification.objects.filter(**request.data).last()
+            if user_fake:
+                if timezone.now() - user.datetime > timedelta(minutes=720):
+                    return Response({'error': "Eski kodingiz hali ham kuchda"}, 409)
             url2 = "https://notify.eskiz.uz/api/message/sms/send"
             headers = {
                 'Authorization': f'Bearer {sms_token}'
@@ -67,16 +77,23 @@ class RegisterApi(APIView):
 class UserVerificationApi(APIView):
     serializer_class = UserVerificationSerializer
 
+    @transaction.atomic()
     def post(self, request):
         user = UserVerification.objects.filter(**request.data).last()
         if user:
-            if timezone.now() - user.datetime > timedelta(minutes=120):
-                user.delete()
+            if timezone.now() - user.datetime > timedelta(minutes=720):
+                UserVerification.objects.filter(**request.data).delete()
                 return Response(data="Sms code amal qilish muddati tugadi", status=400)
-            User.objects.create_user(username=user.username, password=request.data['password'])
+            user = User.objects.create_user(username=user.username, phone_number=user.username, password=request.data['password'])
+            refresh = RefreshToken.for_user(user)
             UserVerification.objects.filter(username=request.data['username'], password=request.data['password']).delete()
-            return Response(data="Foydalanuvchi muvaffaqiyatli yaratild", status=200)
-        return Response(data="Bunday foydalanuvchi topilmadi", status=400)
+            data = {
+                'message': "Foydalanuvchi muvaffaqiyatli yaratildi",
+                'access': str(refresh.access_token),
+                'refresh': str(refresh)
+            }
+            return Response(data=data, status=200)
+        return Response({'error': "Kiritilgan kod xato"}, status=400)
 
 
 class RecoverPasswordApi(APIView):
@@ -86,9 +103,9 @@ class RecoverPasswordApi(APIView):
         serializer = RecoverPasswordSerializer(data=request.data)
         if serializer.is_valid():
             phone_number = serializer.validated_data['phone_number']
-            user = User.objects.filter(username=phone_number).first()
+            user = User.objects.filter(phone_number=phone_number).first()
             if not user:
-                raise ValidationError("Siz ro'yxatdan o'tmagansiz")
+                raise CustomException("Siz ro'yxatdan o'tmagansiz")
             code = randint(123467, 987654)
             request.data['smsCode'] = code
             url2 = "https://notify.eskiz.uz/api/message/sms/send"
@@ -151,33 +168,22 @@ class UserApi(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data, status=200)
-        # return Response(data=serializer.errors, status=400)
 
     def put(self, request):
-        password = request.data.pop('password')
-        for attr, value in request.data.items():
-            if value:
-                if attr == "username":
-                    if request.user.username != value:
-                        if User.objects.filter(username=value).first():
-                            raise ValidationError("Bunday username avval foydalanilgan")
-                        setattr(request.user, attr, value)
-                else:
-                    setattr(request.user, attr, value)
+        data = request.data.copy()
+        password = data.get('password', None)
         if password:
             request.user.set_password(password)
+            data.pop('password')
+        for attr, value in request.data.items():
+            if value:
+                if attr in ["username", 'email']:
+                    pass
+                else:
+                    setattr(request.user, attr, value)
+
         request.user.save()
         return Response(data=success, status=200)
-
-
-
-# class ProfileEditApi(APIView):
-#     serializer_class = UserSerializer
-#     # permission_classes = [IsAuthenticated]
-
-
-
-
 
 
 class LikeAddApi(APIView):
@@ -224,11 +230,65 @@ class BucketAddApi(APIView):
         return Response(data=serializer.errors, status=400)
 
     def delete(self, request):
-        product_id = request.data.get('product_id', None)
+        product_id = request.query_params.get('product_id', None)
         if product_id:
-            product = request.user.bucket.filter(id=product_id)
+            product = request.user.bucket.filter(id=product_id).first()
             if product:
-                product.delete()
+                request.user.bucket.remove(product.id)
                 return Response(data=success, status=200)
             return Response(data=none, status=400)
         return Response(data=value_e, status=400)
+
+
+class GoogleRegisterApi(APIView):
+    serializer_class = GoogleTokenSerializer
+
+    def post(self, request):
+        serializer = GoogleTokenSerializer(data=request.data)
+        if serializer.is_valid():
+            token = serializer.validated_data['token']
+            try:
+                idinfo = id_token.verify_oauth2_token(token, r.Request(), CLIENT_ID)
+            except Exception as e:
+                raise CustomException(error)
+            email = idinfo['email']
+            user = User.objects.filter(email=email).first()
+            if not user:
+                username = email.split('@')[0]
+                user = User.objects.create_user(username=username, email=email, by_phone=False)
+                refresh = RefreshToken.for_user(user)
+                data = {
+                    'message': "Foydalanuvchi muvaffaqiyatli yaratildi",
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh)
+                }
+                return Response(data=data, status=200)
+
+            refresh = RefreshToken.for_user(user)
+            data = {
+                'message': "Foydalanuvchi login qilindi",
+                'access': str(refresh.access_token),
+                'refresh': str(refresh)
+            }
+            return Response(data=data, status=200)
+        raise CustomException(serializer.errors)
+
+
+class GoogleToPhoneApi(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = GoogleTokenSerializer
+
+    def post(self, request):
+        serializer = GoogleTokenSerializer(data=request.data)
+        if serializer.is_valid():
+            token = serializer.validated_data['token']
+            try:
+                idinfo = id_token.verify_oauth2_token(token, r.Request(), CLIENT_ID)
+            except Exception as e:
+                print(e)
+                raise CustomException(error)
+            email = idinfo['email']
+            request.user.email = email
+            request.user.save()
+            return Response(success, 200)
+        raise CustomException(serializer.errors)

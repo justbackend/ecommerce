@@ -16,8 +16,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             await self.accept()
             users[decoded_token['user_id']] = self.channel_name
             self.scope['user_id'] = decoded_token['user_id']
-            print(users)
-            print("You are connected, //////////////////////////////////////////////////////////")
+            await self.send(text_data=json.dumps({'message': 'hello'}))
         except TokenError as e:
             print('bu token da muammo bor', e)
             # raise AuthenticationFailed("Tokenda muammo bor")
@@ -30,7 +29,10 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         #     await self.accept()
 
     async def disconnect(self, code):
-        del users[self.scope['user_id']]
+        try:
+            del users[self.scope['user_id']]
+        except:
+            pass
 
     # async def receive_json(self, content, **kwargs):
     #     await self.send_json(content)

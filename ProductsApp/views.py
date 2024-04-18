@@ -1,3 +1,4 @@
+import json
 import os
 from time import sleep
 
@@ -9,13 +10,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import Product, Views, Likes, ProductImage
-from .serializers import ProductSerializer, ImageSerializer, ProductGetSerializer, IdSerializer, ImageDeleteSerializer
-from dotenv import load_dotenv
+from .serializers import ProductSerializer, ImageSerializer, ProductGetSerializer, IdSerializer, ImageDeleteSerializer, \
+    ConfirmOrRejectSerializer
+from .functions import one_product
+
 bot_token = os.getenv('bot_token')
 chat_id = os.getenv('chat_id')
-
-
-
+marketing_token = os.getenv('marketing_token')
 
 
 def get_product(product_id):
@@ -34,18 +35,38 @@ class ProductApi(APIView):
     def post(self, request):
         serializer = ProductSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
-            serializer.save()
+            product = serializer.save()
+            images = ProductImage.objects.filter(product=product).all()
             document = "Bor" if serializer.data['document'] else "Yo'q"
             new = "Yangi" if serializer.data['isNew'] else "Foydalanilgan"
-            caption = f"📱Nomi: {serializer.data['phoneName']}\n📍Model: {serializer.data['phoneMarka']}\n💰Narxi: {serializer.data['cost']} {serializer.data['costType']}\n💾Xotirasi: {serializer.data['phoneMemory']}\n🎨Rangi: {serializer.data['phoneColor']}\n📦Dokument: {document}\n⚙️Xolati: {new}\n🛠Qo'shimcha: {serializer.data['comment']}\n📌Manzil: {serializer.data['adress']}"
-            image_url = "https://www.google.com/imgres?imgurl=https%3A%2F%2Fwww.cnet.com%2Fa%2Fimg%2Fresize%2F0f37c88c746b755a97f770500419522be6f1da43%2Fhub%2F2023%2F09%2F18%2Fc44256ef-e6c1-41bb-b77b-648792f47c6c%2Fiphone15-pro-64.jpg%3Fauto%3Dwebp%26fit%3Dcrop%26height%3D900%26width%3D1200&tbnid=J8WXimZxlOVD2M&vet=12ahUKEwiFk8bt6N6EAxWSLBAIHYs7D_kQMygSegQIARB1..i&imgrefurl=https%3A%2F%2Fwww.cnet.com%2Ftech%2Fmobile%2Fapple-iphone-15-pro-and-15-pro-max-review-love-at-first-zoom%2F&docid=ZF2DvxsgnEBhgM&w=1200&h=900&q=phone%20iphone%2015&ved=2ahUKEwiFk8bt6N6EAxWSLBAIHYs7D_kQMygSegQIARB1"
-            url = f'https://api.telegram.org/bot{bot_token}/sendPhoto'
+            caption = f"ID: {product.id}\n\n📱Nomi: {serializer.data['phoneName']}\n📍Model: {serializer.data['phoneMarka']}\n💰Narxi: {serializer.data['cost']} {serializer.data['costType']}\n💾Xotirasi: {serializer.data['phoneMemory']}\n🎨Rangi: {serializer.data['phoneColor']}\n📦Dokument: {document}\n⚙️Xolati: {new}\n🛠Qo'shimcha: {serializer.data['comment']}\n📌Manzil: {serializer.data['adress']}\n✉️Telegram: {serializer.data['telegram']}"
+            url = f'https://api.telegram.org/bot{marketing_token}/sendMediaGroup'
+            url2 = f'https://api.telegram.org/bot{marketing_token}/sendMessage'
+            inline_keyboard = {
+                'inline_keyboard': [
+                    [
+                        {'text': 'Tasdiqlash', 'callback_data': f"prconfirm_{product.id}"},
+                        {'text': 'Qaytarish', 'callback_data': f"prreject_{product.id}"}
+                    ]
+                ]
+            }
+            media = []
+            for image in images:
+                media.append({'type': 'photo', 'media': f"https://telmee.4fun.uz/media/{image.image}"})
+            media[-1]['caption'] = caption
+            reply_markup = json.dumps(inline_keyboard)
             data = {
                 'chat_id': chat_id,
-                'photo': image_url,
-                'caption': caption
+                'media': media,
             }
-            requests.post(url, data)
+            data2 = {
+                'chat_id': chat_id,
+                'text': f"Yangi elon joylandi(id:{product.id})",
+                'reply_markup': reply_markup
+            }
+
+            requests.post(url, json=data)
+            requests.post(url2, data2)
             return Response(data=success, status=201)
         return Response(data=serializer.errors, status=400)
 
@@ -133,10 +154,10 @@ class OneProductApi(APIView):
 
 class ProductAllApi(APIView):
     serializer_class = ProductGetSerializer
+
     def get(self, request):
         products = Product.objects.all()
         serializer = ProductGetSerializer(products, many=True, context={"request": request})
-
         return Response(serializer.data, status=200)
 
 
@@ -192,7 +213,7 @@ class ImageApi(APIView):
 
 
 class MyCursorPagination(CursorPagination):
-    page_size = 2  # Number of items per page
+    page_size = 20  # Number of items per page
     ordering = '-time'  # Ordering by datetime, you can adjust this based on your model
     cursor_query_param = 'cursor'
 
@@ -206,5 +227,28 @@ class GetRecentProductApi(APIView):
         return paginator.get_paginated_response(serializer.data)
 
 
+class ConfirmOrRejectApi(APIView):
+    # permission_27
+    serializer_class = ConfirmOrRejectSerializer
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
 
+        if not request.user.is_superuser:
+            raise CustomException(restricted)
 
+        serializer = ConfirmOrRejectSerializer(data=request.data)
+        if serializer.is_valid():
+            action = serializer.validated_data['action']
+            product_id = serializer.validated_data['product_id']
+            if action:
+
+                product = Product.objects.get(id=product_id)
+                if product.user.phone_number == "998900104240":
+                    Product.objects.filter(id=product_id).update(status=4)
+                    return Response(success, 200)
+                Product.objects.filter(id=product_id).update(status=2)
+                return Response(success, 200)
+
+            Product.objects.filter(id=product_id).update(status=3)
+            return Response(success, 200)
+        return CustomException(serializer.errors)

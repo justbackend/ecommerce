@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'ProductsApp',
     'UsersApp',
-    # 'channels',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -52,6 +52,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # 'utils.middlewares.SendErrorToBotMiddleware',
 ]
 
 ROOT_URLCONF = 'ecommerce.urls'
@@ -73,7 +74,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'ecommerce.wsgi.application'
-# ASGI_APPLICATION = "ecommerce.asgi.application"
+ASGI_APPLICATION = "ecommerce.asgi.application"
 
 CHANNEL_LAYERS = {
     'default': {
@@ -134,10 +135,11 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    # 'EXCEPTION_HANDLER': 'utils.customized_exceptions.custom_exception_handler',
 }
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=180),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=24),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
 }
 AUTH_USER_MODEL = 'UsersApp.CustomUser'
 

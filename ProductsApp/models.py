@@ -5,6 +5,12 @@ User = get_user_model()
 
 
 class Product(models.Model):
+    status_choise = [
+        ('1', 'created'),
+        ('2', 'confirmed'),
+        ('3', 'rejected'),
+        ('4', 'special')
+    ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='product', db_index=True)
     phoneName = models.CharField(max_length=250, db_index=True)
@@ -19,15 +25,17 @@ class Product(models.Model):
     adress = models.TextField()
     phoneNumber = models.CharField(max_length=30)
     time = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=30, default='1', choices=status_choise)
+    telegram = models.CharField(max_length=32, null=True, blank=True)
 
 
 class Views(models.Model):
-    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='views', db_index=True)
 
 
 class Likes(models.Model):
-    user = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='liked_products')
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='liked_products', null=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='liked', db_index=True)
 
 

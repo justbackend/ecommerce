@@ -16,7 +16,7 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = (
             'id', 'phoneName', 'phoneMarka', 'cost', 'costType', 'phoneMemory', 'phoneColor', 'document', 'isNew',
-            'comment', 'adress', 'phoneNumber', 'time', 'images')
+            'comment', 'adress', 'phoneNumber', 'time', 'images', 'telegram')
 
     def save(self, **kwargs):
         images = self.validated_data.pop('images')
@@ -24,7 +24,6 @@ class ProductSerializer(serializers.ModelSerializer):
         for image in images:
             ProductImage.objects.create(product=product, image=image)
         return product
-    # def update(self, instance, validated_data):
 
 
 class ProductGetSerializer(serializers.ModelSerializer):
@@ -43,18 +42,23 @@ class ProductGetSerializer(serializers.ModelSerializer):
         model = Product
         fields = (
             'id', 'user', 'phoneName', 'phoneMarka', 'cost', 'costType', 'phoneMemory', 'phoneColor', 'document',
-            'isNew',
-            'comment', 'adress', 'phoneNumber', 'time', 'images')
+            'isNew', 'comment', 'adress', 'phoneNumber', 'time', 'images', 'telegram')
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         request = self.context['request']
         if request.user.is_authenticated:
             like = Likes.objects.filter(user=request.user, product=instance).first()
+            is_cart = Product.objects.filter(storedBy=request.user, id=instance.id).first()
+            if is_cart:
+                representation['isCart'] = True
+            else:
+                representation['isCart'] = False
             if like:
                 representation['liked_status'] = True
             else:
                 representation['liked_status'] = False
+
         return representation
 
 
@@ -73,3 +77,8 @@ class IdSerializer(serializers.Serializer):
 class ImageDeleteSerializer(serializers.Serializer):
     product_id = serializers.IntegerField()
     image_id = serializers.IntegerField()
+
+
+class ConfirmOrRejectSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    action = serializers.BooleanField()

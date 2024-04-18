@@ -1,13 +1,13 @@
-from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-# from ProductsApp.models import Product
 
 
 class CustomUser(AbstractUser):
-    realUsername = models.CharField(max_length=32)
-    likedProducts = models.ManyToManyField('ProductsApp.Product', related_name="likedBy",)
+    phone_number = models.CharField(max_length=32, unique=True, null=True)
+    likedProducts = models.ManyToManyField('ProductsApp.Product', related_name="likedBy")
     bucket = models.ManyToManyField('ProductsApp.Product', related_name="storedBy")
+    by_phone = models.BooleanField(default=True)
+    father_name = models.CharField(max_length=32, null=True)
 
 
 class UserVerification(models.Model):
@@ -15,6 +15,9 @@ class UserVerification(models.Model):
     password = models.CharField(max_length=32)
     smsCode = models.IntegerField()
     datetime = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.username
 
 
 class Recovery(models.Model):
