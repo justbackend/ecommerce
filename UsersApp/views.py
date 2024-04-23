@@ -23,8 +23,8 @@ sms_token = ""
 def refresh_token():
     global sms_token
     url = "https://notify.eskiz.uz/api/auth/login"
-    payload = {'email': 'izzatullaev2001abror@gmail.com',
-               'password': 'Z7YaqztTs7NXs57IsYgVCdb0U2VfB0HyuhbD2rD4'}
+    payload = {'email': 'drkoffical001@gmail.com',
+               'password': 'SS40484ADvjLbc5UnqZHvLLlZLQJcKdSyMxb0JiG'}
     response = requests.request("POST", url, data=payload)
     if response.status_code == 200:
         sms_token = response.json()['data']['token']
@@ -285,7 +285,6 @@ class GoogleToPhoneApi(APIView):
             try:
                 idinfo = id_token.verify_oauth2_token(token, r.Request(), CLIENT_ID)
             except Exception as e:
-                print(e)
                 raise CustomException(error)
             email = idinfo['email']
             request.user.email = email
